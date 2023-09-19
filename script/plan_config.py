@@ -17,8 +17,9 @@ from util import TASK_COLORS, AGENT_COLORS, DIRECTION, OBSTACLES, MAP_CONFIG, \
 class PlanConfig:
     """ Plan configuration and loading and rendering functions.
     """
-    def __init__(self, map_file, plan_file, team_size, start_tstep, end_tstep, ppm, moves, delay):
+    def __init__(self, args, map_file, plan_file, team_size, start_tstep, end_tstep, ppm, moves, delay):
         map_name = get_map_name(map_file)
+        self.args = args
         self.team_size:int = team_size
         self.start_tstep:int = start_tstep
         self.end_tstep:int = end_tstep

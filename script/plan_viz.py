@@ -806,7 +806,8 @@ def main() -> None:
     """
     parser = argparse.ArgumentParser(description='Plan visualizer for a MAPF instance')
     parser.add_argument('--map', type=str, help="Path to the map file")
-    parser.add_argument('--plan', type=str, help="Path to the planned path file")
+    parser.add_argument('--plan_path_type1', type=str, default=None, help="Path to the original planned path file")
+    parser.add_argument('--plan_path_type2', type=str, default=None, help="Path to the ITA-CBS planned path file")
     parser.add_argument('--n', dest="team_size", type=int, default=np.inf,
                         help="Number of agents")
     parser.add_argument('--start', type=int, default=0, help="Starting timestep")
@@ -826,7 +827,10 @@ def main() -> None:
                         help="Show all colliding agents")
     args = parser.parse_args()
 
-    plan_config = PlanConfig(args.map, args.plan, args.team_size, args.start, args.end,
+    args.plan = args.plan_path_type1
+    if args.plan_path_type1 == None:
+        args.plan = args.plan_path_type2
+    plan_config = PlanConfig(args, args.map, args.plan, args.team_size, args.start, args.end,
                              args.ppm, args.moves, args.delay)
     PlanViz(plan_config, args.show_grid, args.show_ag_idx, args.show_task_idx,
             args.show_static, args.show_conf_ag)
