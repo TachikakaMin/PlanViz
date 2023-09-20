@@ -21,6 +21,7 @@ MAP_CONFIG: Dict[str,Dict] = {
     "Paris_1_256": {"pixel_per_move": 2, "moves": 2, "delay": 0.06},
     "brc202d": {"pixel_per_move": 2, "moves": 2, "delay": 0.06},
     "random-32-32-20": {"pixel_per_move": 5, "moves": 5, "delay": 0.06},
+    "random-32-32-10": {"pixel_per_move": 5, "moves": 5, "delay": 0.06},
     "warehouse_large": {"pixel_per_move": 2, "moves": 2, "delay": 0.06},
     "warehouse_small": {"pixel_per_move": 5, "moves": 5, "delay": 0.06},
     "sortation_large": {"pixel_per_move": 2, "moves": 2, "delay": 0.06}
@@ -103,6 +104,7 @@ def get_rotation(cur_dir:int, next_dir:int):
             return 1
         if next_dir == 2:
             return -1
+    return 0
 
 class BaseObj:
     def __init__(self, _obj_, _text_, _loc_, _color_) -> None:

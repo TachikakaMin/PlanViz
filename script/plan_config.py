@@ -12,7 +12,7 @@ import json
 import numpy as np
 from util import TASK_COLORS, AGENT_COLORS, DIRECTION, OBSTACLES, MAP_CONFIG, \
     get_map_name, get_dir_loc, BaseObj, Agent, Task
-
+import yaml
 
 class PlanConfig:
     """ Plan configuration and loading and rendering functions.
@@ -77,7 +77,15 @@ class PlanConfig:
         self.canvas.configure(scrollregion = self.canvas.bbox("all"))
 
         # Render instance on canvas
-        self.load_plan(plan_file)  # Load the results
+        data = None
+        if self.args.plan_path_type2:
+            with open(args.plan_path_type2) as states_file:
+                data = yaml.safe_load(states_file)
+            data = self.plan_type2_to_type1(data)
+        else:
+            with open(file=plan_file, mode="r", encoding="UTF-8") as fin:
+                data = json.load(fin)
+        self.load_plan(data, plan_file)  # Load the results
         self.render_env()
         self.render_agents()
 
@@ -106,11 +114,32 @@ class PlanConfig:
         assert len(self.env_map) == self.height
         print("Done!")
 
-
-    def load_plan(self, plan_file):
+    def plan_type2_to_type1(self, type2_data):
         data = {}
-        with open(file=plan_file, mode="r", encoding="UTF-8") as fin:
-            data = json.load(fin)
+        data["teamSize"] = len(type2_data["schedule"])
+        data["start"] = {}
+        data["makespan"] = 0
+        data["actualPaths"] = {}
+        data["events"] = {}
+        data["tasks"] = {}
+        for agent_name in type2_data["schedule"]:
+            agent_path = [[node['x'], node['y'], node['t']] for node in type2_data["schedule"][agent_name]]
+            data["makespan"] = max(data["makespan"], len(agent_path)-1)
+
+            agent_idx = int(agent_name.split("agent")[-1])
+            data["actualPaths"][agent_idx] = agent_path
+
+            start_node = agent_path[0]
+            end_node = agent_path[-1]
+            data["start"][agent_idx] = [start_node[0], start_node[1],  'N']
+            data["events"][agent_idx] = [[agent_idx, 0, "assigned"], [agent_idx, len(agent_path)-1, "finished"]]
+            data["tasks"][agent_idx] = [agent_idx, end_node[0], end_node[1]]
+
+        data["plannerPaths"] = data["actualPaths"]
+        return data
+
+
+    def load_plan(self, data, plan_file):
 
         if self.team_size == np.inf:
             self.team_size = data["teamSize"]
@@ -127,24 +156,35 @@ class PlanConfig:
             self.start_loc[ag_id] = start
 
             self.exec_paths[ag_id] = []  # Get actual path
-            self.exec_paths[ag_id].append(start)
             if "actualPaths" not in data.keys():
                 raise KeyError("Missing actualPaths.")
-            tmp_str = data["actualPaths"][ag_id].split(",")
-            for motion in tmp_str:
-                next_ = self.state_transition(self.exec_paths[ag_id][-1], motion)
-                self.exec_paths[ag_id].append(next_)
+
+            if self.args.plan_path_type2:
+                tmp_path = data["actualPaths"][ag_id]
+                self.exec_paths[ag_id] = tmp_path
+            else:
+                self.exec_paths[ag_id].append(start)
+                tmp_str = data["actualPaths"][ag_id].split(",")
+                for motion in tmp_str:
+                    next_ = self.state_transition(self.exec_paths[ag_id][-1], motion)
+                    self.exec_paths[ag_id].append(next_)
+
             if self.makespan < max(len(self.exec_paths[ag_id])-1, 0):
                 self.makespan = max(len(self.exec_paths[ag_id])-1, 0)
 
             self.plan_paths[ag_id] = []  # Get planned path
-            self.plan_paths[ag_id].append(start)
             if "plannerPaths" not in data.keys():
                 raise KeyError("Missing plannerPaths.")
-            tmp_str = data["plannerPaths"][ag_id].split(",")
-            for tstep, motion in enumerate(tmp_str):
-                next_ = self.state_transition(self.exec_paths[ag_id][tstep], motion)
-                self.plan_paths[ag_id].append(next_)
+
+            if self.args.plan_path_type2:
+                tmp_path = data["plannerPaths"][ag_id]
+                self.plan_paths[ag_id] = tmp_path
+            else:
+                self.plan_paths[ag_id].append(start)
+                tmp_str = data["plannerPaths"][ag_id].split(",")
+                for tstep, motion in enumerate(tmp_str):
+                    next_ = self.state_transition(self.exec_paths[ag_id][tstep], motion)
+                    self.plan_paths[ag_id].append(next_)
 
             # Slice the paths between self.start_tstep and self.end_tstep
             self.exec_paths[ag_id] = self.exec_paths[ag_id][self.start_tstep:self.end_tstep+1]
