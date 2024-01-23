@@ -1,430 +1,148 @@
 # -*- coding: UTF-8 -*-
-""" Plan configurations with rotation agents
-This script contains the configurations for PlanViz, a visualizer for the League of Robot Runners.
-All rights reserved.
+"""Utility functions
+
+Returns:
+    _type_: _description_
 """
-
-import sys
-import logging
+import math
 from typing import List, Tuple, Dict
-import tkinter as tk
-import json
-import numpy as np
-from util import TASK_COLORS, AGENT_COLORS, DIRECTION, OBSTACLES, MAP_CONFIG, \
-    get_map_name, get_dir_loc, BaseObj, Agent, Task
-import yaml
 
-class PlanConfig:
-    """ Plan configuration and loading and rendering functions.
+TASK_COLORS: Dict[int, str] = {"unassigned": "pink",
+                               "newlyassigned": "yellowgreen",
+                               "assigned": "orange",
+                               "finished": "grey"}
+AGENT_COLORS: Dict[str, str] = {"newlyassigned": "yellowgreen",
+                                "assigned": "deepskyblue",
+                                "collide": "red"}
+DIRECTION: Dict[str,int] = {"E":0, "N":1, "W":2, "S":3}
+OBSTACLES: List[str] = ['@', 'T', 'H']
+
+MAP_CONFIG: Dict[str,Dict] = {
+    "Paris_1_256": {"pixel_per_move": 2, "moves": 2, "delay": 0.06},
+    "orz900d": {"pixel_per_move": 1, "moves": 1, "delay": 0.06},
+    "den312d": {"pixel_per_move": 3, "moves": 3, "delay": 0.03},
+    "brc202d": {"pixel_per_move": 2, "moves": 2, "delay": 0.06},
+    "room-64-64-8": {"pixel_per_move": 5, "moves": 5, "delay": 0.06},
+    "random-32-32-20": {"pixel_per_move": 5, "moves": 5, "delay": 0.06},
+    "8x8_obs12": {"pixel_per_move": 20, "moves": 20, "delay": 0.06},
+    "empty-4-4": {"pixel_per_move": 20, "moves": 20, "delay": 0.06},
+    "test": {"pixel_per_move": 20, "moves": 20, "delay": 0.06},
+    "random-32-32-10": {"pixel_per_move": 5, "moves": 5, "delay": 0.06},
+    "warehouse_large": {"pixel_per_move": 2, "moves": 2, "delay": 0.06},
+    "warehouse_small": {"pixel_per_move": 5, "moves": 5, "delay": 0.06},
+    "sortation_large": {"pixel_per_move": 2, "moves": 2, "delay": 0.06},
+    "Boston_0_256": {"pixel_per_move": 2, "moves": 2, "delay": 0.06},
+    "warehouse-10-20-10-2-1": {"pixel_per_move": 2, "moves": 2, "delay": 0.06},
+}
+
+DIR_DIAMETER = 0.1
+DIR_OFFSET = 0.05
+
+
+def get_map_name(in_file:str) -> str:
+    """Get the map name from the file name
+
+    Args:
+        in_file (str): the path of the map file
+
+    Returns:
+        str: the name of the map
     """
-    def __init__(self, args, map_file, plan_file, team_size, start_tstep, end_tstep, ppm, moves, delay):
-        map_name = get_map_name(map_file)
-        self.args = args
-        self.team_size:int = team_size
-        self.start_tstep:int = start_tstep
-        self.end_tstep:int = end_tstep
-
-        self.ppm:int = ppm
-        if self.ppm is None:
-            if map_name in MAP_CONFIG:
-                self.ppm = MAP_CONFIG[map_name]["pixel_per_move"]
-            else:
-                raise TypeError("Missing variable: pixel_per_move.")
-        self.moves = moves
-        if self.moves is None:
-            if map_name in MAP_CONFIG:
-                self.moves = MAP_CONFIG[map_name]["moves"]
-            else:
-                raise TypeError("Missing variable: moves.")
-        self.delay:int = delay
-        if self.delay is None:
-            if map_name in MAP_CONFIG:
-                self.delay = MAP_CONFIG[map_name]["delay"]
-            else:
-                raise TypeError("Missing variable: delay.")
-
-        self.tile_size:int = self.ppm * self.moves
-        self.width:int = -1
-        self.height:int = -1
-        self.env_map:List[List[int]] = []
-        self.grids:List = []
-        self.tasks = {}
-        self.events = {"assigned": {}, "finished": {}}
-        self.event_tracker = {}
-
-        self.start_loc  = {}
-        self.plan_paths = {}
-        self.exec_paths = {}
-        self.conflicts  = {}
-        self.agents:Dict[int,Agent] = {}
-        self.makespan:int = -1
-        self.cur_timestep = self.start_tstep
-        self.shown_path_agents = set()
-        self.conflict_agents = set()
-
-        self.load_map(map_file)  # Load from the map file
-
-        # Initialize the window
-        self.window = tk.Tk()
-
-        # Show MAPF instance
-        # Use width and height for scaling
-        self.canvas = tk.Canvas(self.window,
-                                width=(self.width+1) * self.tile_size,
-                                height=(self.height+1) * self.tile_size,
-                                bg="white")
-        self.canvas.grid(row=0, column=0,sticky="nsew")
-        self.canvas.configure(scrollregion = self.canvas.bbox("all"))
-
-        # Render instance on canvas
-        data = None
-        if self.args.plan_path_type2:
-            with open(args.plan_path_type2) as states_file:
-                data = yaml.safe_load(states_file)
-            data = self.plan_type2_to_type1(data)
-        else:
-            with open(file=plan_file, mode="r", encoding="UTF-8") as fin:
-                data = json.load(fin)
-        self.load_plan(data, plan_file)  # Load the results
-        self.render_env()
-        self.render_agents()
+    return in_file.split("/")[-1].split(".")[0]
 
 
-
-    def load_map(self, map_file:str) -> None:
-        print("Loading map from " + map_file, end = '... ')
-
-        with open(file=map_file, mode="r", encoding="UTF-8") as fin:
-            fin.readline()  # ignore type
-            self.height = int(fin.readline().strip().split(' ')[1])
-            self.width  = int(fin.readline().strip().split(' ')[1])
-            fin.readline()  # ignore 'map' line
-            for line in fin.readlines():
-                out_line: List[bool] = []
-                for word in list(line.strip()):
-                    if word in OBSTACLES:
-                        out_line.append(0)
-                    elif word in [".", "S", "U"]:
-                        out_line.append(1)
-                    elif word == "E":
-                        out_line.append(2)
-                # print(len(out_line) , self.width)
-                assert len(out_line) == self.width
-                self.env_map.append(out_line)
-
-        assert len(self.env_map) == self.height
-        print("Done!")
-
-    def plan_type2_to_type1(self, type2_data):
-        data = {}
-        data["teamSize"] = len(type2_data["schedule"])
-        data["start"] = {}
-        data["makespan"] = 0
-        data["actualPaths"] = {}
-        data["events"] = {}
-        data["tasks"] = {}
-        for agent_name in type2_data["schedule"]:
-            agent_path = [[node['x'], node['y'], node['t']] for node in type2_data["schedule"][agent_name]]
-            data["makespan"] = max(data["makespan"], len(agent_path)-1)
-
-            agent_idx = int(agent_name.split("agent")[-1])
-            data["actualPaths"][agent_idx] = agent_path
-
-            start_node = agent_path[0]
-            end_node = agent_path[-1]
-            data["start"][agent_idx] = [start_node[0], start_node[1],  'N']
-            data["events"][agent_idx] = [[agent_idx, 0, "assigned"], [agent_idx, len(agent_path)-1, "finished"]]
-            data["tasks"][agent_idx] = [agent_idx, end_node[0], end_node[1]]
-
-        data["plannerPaths"] = data["actualPaths"]
-        return data
+def get_angle(glob_dir:int):
+    out_angle = 0
+    if glob_dir == 0:
+        out_angle = 0
+    elif glob_dir == 1:
+        out_angle = math.pi / 2.
+    elif glob_dir == 2:
+        out_angle = math.pi
+    elif glob_dir == 3:
+        out_angle = -1 * math.pi / 2.
+    return out_angle
 
 
-    def load_plan(self, data, plan_file):
-
-        if self.team_size == np.inf:
-            self.team_size = data["teamSize"]
-
-        if self.end_tstep == np.inf:
-            if "makespan" not in data.keys():
-                raise KeyError("Missing makespan!")
-            self.end_tstep = data["makespan"]
-
-        print("Loading paths from " + str(plan_file), end="... ")
-        for ag_id in range(self.team_size):
-            start = data["start"][ag_id]  # Get start location
-            start = (int(start[0]), int(start[1]), DIRECTION[start[2]])
-            self.start_loc[ag_id] = start
-
-            self.exec_paths[ag_id] = []  # Get actual path
-            if "actualPaths" not in data.keys():
-                raise KeyError("Missing actualPaths.")
-
-            if self.args.plan_path_type2:
-                tmp_path = data["actualPaths"][ag_id]
-                self.exec_paths[ag_id] = tmp_path
-            else:
-                self.exec_paths[ag_id].append(start)
-                tmp_str = data["actualPaths"][ag_id].split(",")
-                for motion in tmp_str:
-                    next_ = self.state_transition(self.exec_paths[ag_id][-1], motion)
-                    self.exec_paths[ag_id].append(next_)
-
-            if self.makespan < max(len(self.exec_paths[ag_id])-1, 0):
-                self.makespan = max(len(self.exec_paths[ag_id])-1, 0)
-
-            self.plan_paths[ag_id] = []  # Get planned path
-            if "plannerPaths" not in data.keys():
-                raise KeyError("Missing plannerPaths.")
-
-            if self.args.plan_path_type2:
-                tmp_path = data["plannerPaths"][ag_id]
-                self.plan_paths[ag_id] = tmp_path
-            else:
-                self.plan_paths[ag_id].append(start)
-                tmp_str = data["plannerPaths"][ag_id].split(",")
-                for tstep, motion in enumerate(tmp_str):
-                    next_ = self.state_transition(self.exec_paths[ag_id][tstep], motion)
-                    self.plan_paths[ag_id].append(next_)
-
-            # Slice the paths between self.start_tstep and self.end_tstep
-            self.exec_paths[ag_id] = self.exec_paths[ag_id][self.start_tstep:self.end_tstep+1]
-            self.plan_paths[ag_id] = self.plan_paths[ag_id][self.start_tstep:self.end_tstep+1]
-        print("Done!")
-
-        print("Loading errors from " + str(plan_file), end="... ")
-        if "errors" in data:
-            for err in data["errors"]:
-                tstep = err[2]
-                if self.start_tstep <= tstep <= self.end_tstep:
-                    self.conflict_agents.add(err[0])
-                    self.conflict_agents.add(err[1])
-                    if tstep not in self.conflicts:  # Sort errors according to the tstep
-                        self.conflicts[tstep] = []
-                    self.conflicts[tstep].append(err)
-        print("Done!")
-
-        print("Loading events from " + str(plan_file), end="... ")
-        if "events" not in data.keys() and data["events"]:
-            raise KeyError("Missing events.")
-
-        # Initialize assigned events
-        shown_tasks = set()
-        for ag_ in range(self.team_size):
-            for eve in data["events"][ag_]:
-                if eve[2] != "assigned":
-                    continue
-                tid:int   = eve[0]
-                tstep:int = eve[1]
-                if self.start_tstep <= tstep <= self.end_tstep:
-                    if tstep not in self.events["assigned"]:
-                        self.events["assigned"][tstep] = {}  # task_idx -> agent
-                    self.events["assigned"][tstep][tid] = ag_
-                    shown_tasks.add(tid)
-        self.event_tracker["aTime"] = list(sorted(self.events["assigned"].keys()))
-        self.event_tracker["aTime"].append(-1)
-        self.event_tracker["aid"] = 0
-
-        # Initialize finished events
-        for ag_ in range(self.team_size):
-            for eve in data["events"][ag_]:
-                if eve[2] != "finished":
-                    continue
-                tid:int   = eve[0]
-                tstep:int = eve[1]
-                if tid in shown_tasks:
-                    if tstep not in self.events["finished"]:
-                        self.events["finished"][tstep] = {}  # task_idx -> agent
-                    self.events["finished"][tstep][tid] = ag_
-        self.event_tracker["fTime"] = list(sorted(self.events["finished"].keys()))
-        self.event_tracker["fTime"].append(-1)
-        self.event_tracker["fid"] = 0
-        print("Done!")
-
-        print("Loading tasks from " + str(plan_file), end="... ")
-        if "tasks" not in data.keys() and data["tasks"]:
-            raise KeyError("Missing tasks.")
-
-        for a_time in self.event_tracker["aTime"]:  # traverse all assigned timesteps
-            if a_time < self.start_tstep:
-                continue
-            if a_time > self.end_tstep:
-                break
-            for _tid_ in self.events["assigned"][a_time]:
-                _task_ = data["tasks"][_tid_]
-                assert _tid_ == _task_[0]
-                _tloc_ = (_task_[1], _task_[2])
-                _tobj_ = self.render_obj(_tid_, _tloc_, "rectangle",
-                                         TASK_COLORS["unassigned"])
-                new_task = Task(_tid_, _tloc_, _tobj_)
-                self.tasks[_tid_] = new_task
-        print("Done!")
+def get_dir_loc(_loc_:Tuple[int]):
+    dir_loc = [0.0, 0.0, 0.0, 0.0]
+    if _loc_[2] == 0:  # East
+        dir_loc[1] = _loc_[0] + 0.5 - DIR_DIAMETER
+        dir_loc[0] = _loc_[1] + 1 - DIR_OFFSET - DIR_DIAMETER*2
+        dir_loc[3] = _loc_[0] + 0.5 + DIR_DIAMETER
+        dir_loc[2] = _loc_[1] + 1 - DIR_OFFSET
+    elif _loc_[2] == 3:  # South
+        dir_loc[1] = _loc_[0] + 1 - DIR_OFFSET - DIR_DIAMETER*2
+        dir_loc[0] = _loc_[1] + 0.5 - DIR_DIAMETER
+        dir_loc[3] = _loc_[0] + 1 - DIR_OFFSET
+        dir_loc[2] = _loc_[1] + 0.5 + DIR_DIAMETER
+    elif _loc_[2] == 2:  # West
+        dir_loc[1] = _loc_[0] + 0.5 - DIR_DIAMETER
+        dir_loc[0] = _loc_[1] + DIR_OFFSET
+        dir_loc[3] = _loc_[0] + 0.5 + DIR_DIAMETER
+        dir_loc[2] = _loc_[1] + DIR_OFFSET + DIR_DIAMETER*2
+    elif _loc_[2] == 1:  # North
+        dir_loc[1] = _loc_[0] + DIR_OFFSET
+        dir_loc[0] = _loc_[1] + 0.5 - DIR_DIAMETER
+        dir_loc[3] = _loc_[0] + DIR_OFFSET + DIR_DIAMETER*2
+        dir_loc[2] = _loc_[1] + 0.5 + DIR_DIAMETER
+    return dir_loc
 
 
-    def state_transition(self, cur_state:Tuple[int,int,int], motion:str) -> Tuple[int,int,int]:
-        if motion == "F":  # Forward
-            if cur_state[-1] == 0:  # Right
-                return (cur_state[0], cur_state[1]+1, cur_state[2])
-            if cur_state[-1] == 1:  # Up
-                return (cur_state[0]-1, cur_state[1], cur_state[2])
-            if cur_state[-1] == 2:  # Left
-                return (cur_state[0], cur_state[1]-1, cur_state[2])
-            if cur_state[-1] == 3:  # Down
-                return (cur_state[0]+1, cur_state[1], cur_state[2])
-        elif motion == "R":  # Clockwise
-            return (cur_state[0], cur_state[1], (cur_state[2]+3)%4)
-        elif motion == "C":  # Counter-clockwise
-            return (cur_state[0], cur_state[1], (cur_state[2]+1)%4)
-        elif motion in ["W", "T"]:
-            return cur_state
-        else:
-            logging.error("Invalid motion")
-            sys.exit()
+def get_rotation(cur_dir:int, next_dir:int):
+    if cur_dir == next_dir:
+        return 0
+    if cur_dir == 0:
+        if next_dir == 1:
+            return 1  # Counter-clockwise 90 degrees
+        if next_dir == 3:
+            return -1  # Clockwise 90 degrees
+    elif cur_dir == 1:
+        if next_dir == 2:
+            return 1
+        if next_dir == 0:
+            return -1
+    elif cur_dir == 2:
+        if next_dir == 3:
+            return 1
+        if next_dir == 1:
+            return -1
+    elif cur_dir == 3:
+        if next_dir == 0:
+            return 1
+        if next_dir == 2:
+            return -1
+    return 0
+
+class BaseObj:
+    def __init__(self, _obj_, _text_, _loc_, _color_) -> None:
+        self.obj = _obj_
+        self.text = _text_
+        self.loc = _loc_
+        self.color = _color_
+
+class Agent:
+    def __init__(self, _idx_, _ag_obj_:BaseObj, _start_:BaseObj,
+                 _plan_path_:List, _path_objs_:List[BaseObj], _exec_path_:List, _dir_obj_):
+        self.idx = _idx_
+        self.task_idx = -1
+        self.agent_obj = _ag_obj_
+        self.start_obj = _start_
+        self.dir_obj = _dir_obj_  # oval on canvas
+        self.plan_path = _plan_path_
+        self.exec_path = _exec_path_
+        self.path_objs = _path_objs_
+        self.path = self.exec_path  # Set execution path as default
 
 
-    def render_obj(self, _idx_:int, _loc_:Tuple[int], _shape_:str="rectangle",
-                   _color_:str="blue", _state_:str="normal", offset:float=0.05, _tag_:str="obj"):
-        """Mark certain positions on the visualizer
-
-        Args:
-            _idx_ (int, required): The index of the object
-            _loc_ (List, required): A list of locations on the map.
-            _shape_ (str, optional): The shape of marked on each location. Defaults to "rectangle".
-            _color_ (str, optional): The color of the mark. Defaults to "blue".
-            _state_ (str, optional): Whether to show the object or not. Defaults to "normal"
-        """
-        _tmp_canvas_ = None
-        if _shape_ == "rectangle":
-            _tmp_canvas_ = self.canvas.create_rectangle((_loc_[1]+offset) * self.tile_size,
-                                                        (_loc_[0]+offset) * self.tile_size,
-                                                        (_loc_[1]+1-offset) * self.tile_size,
-                                                        (_loc_[0]+1-offset) * self.tile_size,
-                                                        fill=_color_,
-                                                        tag=_tag_,
-                                                        state=_state_,
-                                                        outline="")
-        elif _shape_ == "oval":
-            _tmp_canvas_ = self.canvas.create_oval((_loc_[1]+offset) * self.tile_size,
-                                                   (_loc_[0]+offset) * self.tile_size,
-                                                   (_loc_[1]+1-offset) * self.tile_size,
-                                                   (_loc_[0]+1-offset) * self.tile_size,
-                                                   fill=_color_,
-                                                   tag=_tag_,
-                                                   state=_state_,
-                                                   outline="")
-        else:
-            logging.error("Undefined shape.")
-            sys.exit()
-
-        _tmp_text_ = self.canvas.create_text((_loc_[1]+0.5)*self.tile_size,
-                                            (_loc_[0]+0.5)*self.tile_size,
-                                            text=str(_idx_),
-                                            fill="black",
-                                            tag=("text", _tag_),
-                                            state=_state_,
-                                            font=("Arial", int(self.tile_size // 2)))
-
-        return BaseObj(_tmp_canvas_, _tmp_text_, _loc_, _color_)
-
-
-    def render_env(self) -> None:
-        print("Rendering the environment ... ", end="")
-        # Render grids
-        for rid in range(self.height):  # Render horizontal lines
-            _line_ = self.canvas.create_line(0, rid * self.tile_size,
-                                             self.width * self.tile_size, rid * self.tile_size,
-                                             tags="grid",
-                                             state= "normal",
-                                             fill="grey")
-            self.grids.append(_line_)
-        for cid in range(self.width):  # Render vertical lines
-            _line_ = self.canvas.create_line(cid * self.tile_size, 0,
-                                             cid * self.tile_size, self.height * self.tile_size,
-                                             tags="grid",
-                                             state= "normal",
-                                             fill="grey")
-            self.grids.append(_line_)
-
-        # Render features
-        for rid, _cur_row_ in enumerate(self.env_map):
-            for cid, _cur_ele_ in enumerate(_cur_row_):
-                if _cur_ele_ == 0:  # obstacles
-                    self.canvas.create_rectangle(cid * self.tile_size,
-                                                 rid * self.tile_size,
-                                                 (cid+1)*self.tile_size,
-                                                 (rid+1)*self.tile_size,
-                                                 state="disable",
-                                                 fill="black")
-
-        # Render coordinates
-        for cid in range(self.width):
-            self.canvas.create_text((cid+0.5)*self.tile_size,
-                                    (self.height+0.5)*self.tile_size,
-                                    text=str(cid),
-                                    fill="black",
-                                    tag="text",
-                                    state="disable",
-                                    font=("Arial", int(self.tile_size//2)))
-        for rid in range(self.height):
-            self.canvas.create_text((self.width+0.5)*self.tile_size,
-                                    (rid+0.5)*self.tile_size,
-                                    text=str(rid),
-                                    fill="black",
-                                    tag="text",
-                                    state="disable",
-                                    font=("Arial", int(self.tile_size//2)))
-        self.canvas.create_line(self.width * self.tile_size, 0,
-                                self.width * self.tile_size, self.height * self.tile_size,
-                                state="disable",
-                                fill="black")
-        self.canvas.create_line(0, self.height * self.tile_size,
-                                self.width * self.tile_size, self.height * self.tile_size,
-                                state="disable",
-                                fill="black")
-        print("Done!")
-
-
-    def render_agents(self):
-        print("Rendering the agents... ", end="")
-        # Separate the render of static locations and agents so that agents can overlap
-        start_objs = []
-        path_objs = []
-
-        for ag_id in range(self.team_size):
-            start = self.render_obj(ag_id, self.start_loc[ag_id], "oval", "grey", "disable")
-            start_objs.append(start)
-
-            ag_path = []  # Render paths as purple rectangles
-            for _pid_ in range(len(self.exec_paths[ag_id])):
-                _p_loc_ = (self.exec_paths[ag_id][_pid_][0], self.exec_paths[ag_id][_pid_][1])
-                _p_obj = None
-                if _pid_ > 0 and _p_loc_ == (self.exec_paths[ag_id][_pid_-1][0],
-                                             self.exec_paths[ag_id][_pid_-1][1]):
-                    _p_obj = self.render_obj(ag_id, _p_loc_, "rectangle", "purple", "disable", 0.25)
-                else:  # non=wait action, smaller rectangle
-                    _p_obj = self.render_obj(ag_id, _p_loc_, "rectangle", "purple", "disable", 0.4)
-                self.canvas.itemconfigure(_p_obj.obj, state="hidden")
-                self.canvas.delete(_p_obj.text)
-                ag_path.append(_p_obj)
-            path_objs.append(ag_path)
-
-        if len(self.exec_paths) == 0:
-            raise ValueError("Missing actual paths!")
-
-        for ag_id in range(self.team_size):  # Render the actual agents
-            agent_obj = self.render_obj(ag_id, self.exec_paths[ag_id][0], "oval",
-                                        AGENT_COLORS["assigned"], "disable", 0.05, str(ag_id))
-            dir_loc = get_dir_loc(self.exec_paths[ag_id][0])
-            dir_obj = self.canvas.create_oval(dir_loc[0] * self.tile_size,
-                                              dir_loc[1] * self.tile_size,
-                                              dir_loc[2] * self.tile_size,
-                                              dir_loc[3] * self.tile_size,
-                                              fill="navy",
-                                              tag="dir",
-                                              state="disable",
-                                              outline="")
-
-            agent = Agent(ag_id, agent_obj, start_objs[ag_id], self.plan_paths[ag_id],
-                          path_objs[ag_id], self.exec_paths[ag_id], dir_obj)
-            self.agents[ag_id] = agent
-        print("Done!")
+class Task:
+    def __init__(self, idx:int, loc:Tuple[int,int], task_obj: BaseObj,
+                 assigned:Tuple[int,int]=(math.inf,math.inf),
+                 finished:Tuple[int,int]=(math.inf,math.inf),
+                 state:int=0):
+        self.idx = idx
+        self.loc = loc
+        self.events = {"assigned": {"agent": assigned[0], "timestep": assigned[1]},
+                       "finished": {"agent": finished[0], "timestep": finished[1]}}
+        self.task_obj = task_obj
+        self.state = state
