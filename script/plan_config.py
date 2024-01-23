@@ -108,9 +108,10 @@ class PlanConfig:
                         out_line.append(1)
                     elif word == "E":
                         out_line.append(2)
-
+                print(len(out_line) , self.width)
                 assert len(out_line) == self.width
                 self.env_map.append(out_line)
+
         assert len(self.env_map) == self.height
         print("Done!")
 
