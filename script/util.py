@@ -19,10 +19,14 @@ OBSTACLES: List[str] = ['@', 'T']
 
 MAP_CONFIG: Dict[str,Dict] = {
     "Paris_1_256": {"pixel_per_move": 2, "moves": 2, "delay": 0.06},
+    "orz900d": {"pixel_per_move": 1, "moves": 1, "delay": 0.06},
     "den312d": {"pixel_per_move": 3, "moves": 3, "delay": 0.03},
     "brc202d": {"pixel_per_move": 2, "moves": 2, "delay": 0.06},
+    "room-64-64-8": {"pixel_per_move": 5, "moves": 5, "delay": 0.06},
     "random-32-32-20": {"pixel_per_move": 5, "moves": 5, "delay": 0.06},
+    "8x8_obs12": {"pixel_per_move": 20, "moves": 20, "delay": 0.06},
     "empty-4-4": {"pixel_per_move": 20, "moves": 20, "delay": 0.06},
+    "test": {"pixel_per_move": 20, "moves": 20, "delay": 0.06},
     "random-32-32-10": {"pixel_per_move": 5, "moves": 5, "delay": 0.06},
     "warehouse_large": {"pixel_per_move": 2, "moves": 2, "delay": 0.06},
     "warehouse_small": {"pixel_per_move": 5, "moves": 5, "delay": 0.06},
