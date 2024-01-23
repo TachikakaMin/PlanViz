@@ -99,6 +99,12 @@ class PlanViz:
         self.restart_button.grid(row=row_idx, column=2, columnspan=2, sticky="nsew")
         row_idx += 1
 
+        self.reason_button = tk.Button(self.frame, text="Reason",
+                                    font=("Arial",TEXT_SIZE),
+                                    command=self.reason_agents)
+        self.reason_button.grid(row=row_idx, column=0, sticky="nsew")
+        row_idx += 1
+
         # List of checkboxes
         self.grid_button = tk.Checkbutton(self.frame, text="Show grids",
                                           font=("Arial",TEXT_SIZE),
@@ -545,7 +551,75 @@ class PlanViz:
             self.pcf.canvas.itemconfig(_agent_.start_obj.obj, state=_os_)
             self.pcf.canvas.itemconfig(_agent_.start_obj.text, state=_ts_)
 
+    def move_agents_per_timestep2(self) -> None:
+        if self.pcf.cur_timestep+1 > min(self.pcf.makespan, self.pcf.end_tstep):
+            return
 
+        self.next_button.config(state="disable")
+        _rad_ = ((1 - 2*DIR_OFFSET) - 0.1*2) * self.pcf.tile_size/2
+
+        # Update the next timestep for each agent
+        next_tstep = {}
+        for (ag_id, agent) in self.pcf.agents.items():
+            next_t = min(self.pcf.cur_timestep+1 - self.pcf.start_tstep, len(agent.path)-1)
+            next_tstep[ag_id] = next_t
+
+        for _m_ in range(self.pcf.moves):
+            if _m_ == self.pcf.moves // 2:
+                self.timestep_label.config(text = f"Timestep: {self.pcf.cur_timestep+1:03d}")
+
+            for (ag_id, agent) in self.pcf.agents.items():
+                cur_angle = get_angle(agent.agent_obj.loc[2])
+                direction = (agent.path[next_tstep[ag_id]][1] - agent.agent_obj.loc[1],
+                             agent.path[next_tstep[ag_id]][0] - agent.agent_obj.loc[0])
+                cur_move = (direction[0] * (self.pcf.tile_size / self.pcf.moves),
+                            direction[1] * (self.pcf.tile_size / self.pcf.moves))
+                cur_rotation = get_rotation(agent.agent_obj.loc[2],
+                                            agent.path[next_tstep[ag_id]][2])
+                next_ang = cur_rotation*(math.pi/2)/(self.pcf.moves)
+
+                # Move agent
+                _cos = math.cos(cur_angle + next_ang * (_m_+1)) - math.cos(cur_angle+next_ang*_m_)
+                _sin = -1 * (math.sin(cur_angle+ next_ang*(_m_+1))-math.sin(cur_angle+next_ang*_m_))
+                self.pcf.canvas.move(agent.agent_obj.obj, cur_move[0], cur_move[1])
+                self.pcf.canvas.move(agent.agent_obj.text, cur_move[0], cur_move[1])
+                self.pcf.canvas.move(agent.dir_obj, cur_move[0], cur_move[1])
+                # self.pcf.canvas.move(agent.dir_obj, _rad_ * _cos, _rad_ * _sin)
+            self.pcf.canvas.update()
+            time.sleep(self.pcf.delay)
+
+        # Update the location of each agent
+        for (ag_id, agent) in self.pcf.agents.items():
+            agent.agent_obj.loc = (agent.path[next_tstep[ag_id]][0],
+                                   agent.path[next_tstep[ag_id]][1],
+                                   agent.path[next_tstep[ag_id]][2])
+        self.pcf.cur_timestep += 1
+        self.next_button.config(state="normal")
+
+        # Change tasks' states after cur_timestep += 1
+        prev_aid = max(self.pcf.event_tracker["aid"]-1, 0)
+        if self.pcf.cur_timestep == self.pcf.event_tracker["aTime"][prev_aid]:
+            # from newly assigned to assigned
+            for (tid, ag_id) in self.pcf.events["assigned"][self.pcf.cur_timestep].items():
+                print("(tid, ag_id): ", (tid, ag_id))
+                self.pcf.tasks[tid].state = "assigned"
+                self.change_task_color(tid, TASK_COLORS["assigned"])
+                self.change_ag_color(ag_id, AGENT_COLORS["assigned"])
+
+        if self.pcf.cur_timestep == self.pcf.event_tracker["aTime"][self.pcf.event_tracker["aid"]]:
+            # from unassigned to newly assigned
+            for (tid, ag_id) in self.pcf.events["assigned"][self.pcf.cur_timestep].items():
+                self.pcf.tasks[tid].state = "newlyassigned"
+                self.change_task_color(tid, TASK_COLORS["newlyassigned"])
+                self.change_ag_color(ag_id, AGENT_COLORS["newlyassigned"])
+            self.pcf.event_tracker["aid"] += 1
+
+        if self.pcf.cur_timestep == self.pcf.event_tracker["fTime"][self.pcf.event_tracker["fid"]]:
+            # from assigned to finished
+            for tid in self.pcf.events["finished"][self.pcf.cur_timestep]:
+                self.pcf.tasks[tid].state = "finished"
+                self.change_task_color(tid, TASK_COLORS["finished"])
+            self.pcf.event_tracker["fid"] += 1
     def move_agents_per_timestep(self) -> None:
         if self.pcf.cur_timestep+1 > min(self.pcf.makespan, self.pcf.end_tstep):
             return
@@ -579,7 +653,7 @@ class PlanViz:
                 self.pcf.canvas.move(agent.agent_obj.obj, cur_move[0], cur_move[1])
                 self.pcf.canvas.move(agent.agent_obj.text, cur_move[0], cur_move[1])
                 self.pcf.canvas.move(agent.dir_obj, cur_move[0], cur_move[1])
-                self.pcf.canvas.move(agent.dir_obj, _rad_ * _cos, _rad_ * _sin)
+                # self.pcf.canvas.move(agent.dir_obj, _rad_ * _cos, _rad_ * _sin)
             self.pcf.canvas.update()
             time.sleep(self.pcf.delay)
 
@@ -593,9 +667,10 @@ class PlanViz:
 
         # Change tasks' states after cur_timestep += 1
         prev_aid = max(self.pcf.event_tracker["aid"]-1, 0)
-        if self.pcf.cur_timestep-1 == self.pcf.event_tracker["aTime"][prev_aid]:
+        if self.pcf.cur_timestep == self.pcf.event_tracker["aTime"][prev_aid]:
             # from newly assigned to assigned
-            for (tid, ag_id) in self.pcf.events["assigned"][self.pcf.cur_timestep-1].items():
+            for (tid, ag_id) in self.pcf.events["assigned"][self.pcf.cur_timestep].items():
+                print("(tid, ag_id): ", (tid, ag_id))
                 self.pcf.tasks[tid].state = "assigned"
                 self.change_task_color(tid, TASK_COLORS["assigned"])
                 self.change_ag_color(ag_id, AGENT_COLORS["assigned"])
@@ -646,12 +721,12 @@ class PlanViz:
             prev_aid = max(self.pcf.event_tracker["aid"]-1, 0)
             prev_agn_time = self.pcf.event_tracker["aTime"][prev_aid]
 
-        if prev_timestep == prev_agn_time:  # from assigned to newly assigned
-            for (tid, ag_id) in self.pcf.events["assigned"][prev_agn_time].items():
-                assert self.pcf.tasks[tid].state == "assigned"
-                self.pcf.tasks[tid].state = "newlyassigned"
-                self.change_task_color(tid, TASK_COLORS["newlyassigned"])
-                self.change_ag_color(ag_id, AGENT_COLORS["newlyassigned"])
+        # if prev_timestep == prev_agn_time:  # from assigned to newly assigned
+        #     for (tid, ag_id) in self.pcf.events["assigned"][prev_agn_time].items():
+        #         assert self.pcf.tasks[tid].state == "assigned"
+        #         self.pcf.tasks[tid].state = "newlyassigned"
+        #         self.change_task_color(tid, TASK_COLORS["newlyassigned"])
+        #         self.change_ag_color(ag_id, AGENT_COLORS["newlyassigned"])
 
         # Compute the previous location
         prev_loc:Dict[int, Tuple[int, int]] = {}
@@ -685,7 +760,7 @@ class PlanViz:
                 self.pcf.canvas.move(agent.agent_obj.obj, cur_move[0], cur_move[1])
                 self.pcf.canvas.move(agent.agent_obj.text, cur_move[0], cur_move[1])
                 self.pcf.canvas.move(agent.dir_obj, cur_move[0], cur_move[1])
-                self.pcf.canvas.move(agent.dir_obj, _rad_*_cos, _rad_*_sin)
+                # self.pcf.canvas.move(agent.dir_obj, _rad_*_cos, _rad_*_sin)
             self.pcf.canvas.update()
             time.sleep(self.pcf.delay)
         for (ag_id, agent) in self.pcf.agents.items():
@@ -694,6 +769,31 @@ class PlanViz:
         self.pcf.cur_timestep = prev_timestep
         self.prev_button.config(state="normal")
         self.next_button.config(state="normal")
+
+    def reason_agents(self) -> None:
+        self.run_button.config(state="disable")
+        self.pause_button.config(state="normal")
+        self.next_button.config(state="disable")
+        self.prev_button.config(state="disable")
+        self.update_button.config(state="disable")
+        self.restart_button.config(state="disable")
+        self.task_shown.config(state="disable")
+
+        self.is_run.set(True)
+        while self.pcf.cur_timestep < min(self.pcf.makespan, self.pcf.end_tstep):
+            if self.is_run.get() is True:
+                self.move_agents_per_timestep2()
+                time.sleep(self.pcf.delay * 2)
+            else:
+                break
+
+        self.run_button.config(state="normal")
+        self.pause_button.config(state="normal")
+        self.next_button.config(state="normal")
+        self.prev_button.config(state="normal")
+        self.update_button.config(state="normal")
+        self.restart_button.config(state="normal")
+        self.task_shown.config(state="normal")
 
 
     def move_agents(self) -> None:
@@ -747,19 +847,20 @@ class PlanViz:
             self.change_task_color(tid_, TASK_COLORS["unassigned"])
 
         for a_id, a_time in enumerate(self.pcf.event_tracker["aTime"]):
+            print(a_time, self.pcf.cur_timestep)
             if a_time == -1:
                 self.pcf.event_tracker["aid"] = a_id
                 break
-            if a_time < self.pcf.cur_timestep:
+            if a_time <= self.pcf.cur_timestep:
                 for (tid, ag_id) in self.pcf.events["assigned"][a_time].items():
                     self.pcf.tasks[tid].state = "assigned"
                     self.change_task_color(tid, TASK_COLORS["assigned"])
                     self.pcf.agents[ag_id].agent_obj.color = AGENT_COLORS["assigned"]
-            elif a_time == self.pcf.cur_timestep:
-                for (tid, ag_id) in self.pcf.events["assigned"][a_time].items():
-                    self.pcf.tasks[tid].state = "newlyassigned"
-                    self.change_task_color(tid, TASK_COLORS["newlyassigned"])
-                    self.pcf.agents[ag_id].agent_obj.color = AGENT_COLORS["newlyassigned"]
+            # elif a_time == self.pcf.cur_timestep:
+            #     for (tid, ag_id) in self.pcf.events["assigned"][a_time].items():
+            #         self.pcf.tasks[tid].state = "newlyassigned"
+            #         self.change_task_color(tid, TASK_COLORS["newlyassigned"])
+            #         self.pcf.agents[ag_id].agent_obj.color = AGENT_COLORS["newlyassigned"]
             else:  # a_time > self.pcf.cur_timestep
                 self.pcf.event_tracker["aid"] = a_id
                 break
