@@ -15,7 +15,7 @@ AGENT_COLORS: Dict[str, str] = {"newlyassigned": "yellowgreen",
                                 "assigned": "deepskyblue",
                                 "collide": "red"}
 DIRECTION: Dict[str,int] = {"E":0, "N":1, "W":2, "S":3}
-OBSTACLES: List[str] = ['@', 'T']
+OBSTACLES: List[str] = ['@', 'T', 'H']
 
 MAP_CONFIG: Dict[str,Dict] = {
     "Paris_1_256": {"pixel_per_move": 2, "moves": 2, "delay": 0.06},
@@ -32,7 +32,7 @@ MAP_CONFIG: Dict[str,Dict] = {
     "warehouse_small": {"pixel_per_move": 5, "moves": 5, "delay": 0.06},
     "sortation_large": {"pixel_per_move": 2, "moves": 2, "delay": 0.06},
     "Boston_0_256": {"pixel_per_move": 2, "moves": 2, "delay": 0.06},
-    "warehouse-10-20-10-2-1": {"pixel_per_move": 2, "moves": 2, "delay": 0.06},
+    "warehouse-10-20-10-2-1": {"pixel_per_move": 2, "moves": 2, "delay": 0.03},
 }
 
 DIR_DIAMETER = 0.1

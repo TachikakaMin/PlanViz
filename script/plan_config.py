@@ -108,7 +108,11 @@ class PlanConfig:
                         out_line.append(1)
                     elif word == "E":
                         out_line.append(2)
-                print(len(out_line) , self.width)
+                    elif word == "U":
+                        out_line.append(3)
+                    elif word == "C":
+                        out_line.append(4)
+                # print(len(out_line) , self.width)
                 assert len(out_line) == self.width
                 self.env_map.append(out_line)
 
@@ -145,11 +149,10 @@ class PlanConfig:
         if self.team_size == np.inf:
             self.team_size = data["teamSize"]
 
-        if self.end_tstep == np.inf:
+        if self.end_tstep == -1:
             if "makespan" not in data.keys():
                 raise KeyError("Missing makespan!")
             self.end_tstep = data["makespan"]
-
         print("Loading paths from " + str(plan_file), end="... ")
         for ag_id in range(self.team_size):
             start = data["start"][ag_id]  # Get start location
@@ -355,6 +358,22 @@ class PlanConfig:
                                                  (rid+1)*self.tile_size,
                                                  state="disable",
                                                  fill="black")
+                elif _cur_ele_ == 3:
+                    self.canvas.create_rectangle(cid * self.tile_size,
+                                                 rid * self.tile_size,
+                                                 (cid+1)*self.tile_size,
+                                                 (rid+1)*self.tile_size,
+                                                 state="disable",
+                                                 fill="#55e32d")
+                elif _cur_ele_ == 4:
+                    self.canvas.create_rectangle(cid * self.tile_size,
+                                                 rid * self.tile_size,
+                                                 (cid+1)*self.tile_size,
+                                                 (rid+1)*self.tile_size,
+                                                 state="disable",
+                                                 fill="#bca1c4")
+                    
+                    
 
         # Render coordinates
         for cid in range(self.width):
