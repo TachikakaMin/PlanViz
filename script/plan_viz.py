@@ -809,6 +809,7 @@ class PlanViz:
 
         self.is_run.set(True)
         while self.pcf.cur_timestep < min(self.pcf.makespan, self.pcf.end_tstep):
+            print(self.pcf.cur_timestep , (self.pcf.makespan, self.pcf.end_tstep))
             if self.is_run.get() is True:
                 self.move_agents_per_timestep()
                 time.sleep(self.pcf.delay * 2)
@@ -912,7 +913,7 @@ def main() -> None:
     parser.add_argument('--n', dest="team_size", type=int, default=np.inf,
                         help="Number of agents")
     parser.add_argument('--start', type=int, default=0, help="Starting timestep")
-    parser.add_argument('--end', type=int, default=100, help="Ending timestep")
+    parser.add_argument('--end', type=int, default=-1, help="Ending timestep")
     parser.add_argument('--ppm', dest="ppm", type=int, help="Number of pixels per move")
     parser.add_argument('--mv', dest="moves", type=int, help="Number of moves per action")
     parser.add_argument('--delay', type=float, help="Wait time between timesteps")
