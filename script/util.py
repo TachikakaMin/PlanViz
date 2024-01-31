@@ -32,7 +32,8 @@ MAP_CONFIG: Dict[str,Dict] = {
     "warehouse_small": {"pixel_per_move": 5, "moves": 5, "delay": 0.06},
     "sortation_large": {"pixel_per_move": 2, "moves": 2, "delay": 0.06},
     "Boston_0_256": {"pixel_per_move": 2, "moves": 2, "delay": 0.06},
-    "warehouse-10-20-10-2-1": {"pixel_per_move": 2, "moves": 2, "delay": 0.03},
+    "warehouse-10-20-10-2-1": {"pixel_per_move": 2, "moves": 2, "delay": 0.015},
+    "warehouse-10-20-10-2-1_half": {"pixel_per_move": 2, "moves": 2, "delay": 0.015},
 }
 
 DIR_DIAMETER = 0.1
