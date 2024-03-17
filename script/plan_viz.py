@@ -14,17 +14,27 @@ import numpy as np
 from util import TASK_COLORS, AGENT_COLORS, DIR_OFFSET, \
     get_angle, get_dir_loc, get_rotation
 from plan_config import PlanConfig
+from PIL import ImageGrab
+from PIL import Image
 
+def save_as_png(canvas,fileName):
+    # save postscipt image 
+    canvas.postscript(file = fileName + '.eps') 
+    # use PIL to convert to PNG 
+    img = Image.open(fileName + '.eps') 
+    img.save(fileName + '.pdf', 'pdf') 
+    
 TEXT_SIZE:int = 12
 
 class PlanViz:
     """ This is the control panel of PlanViz
     """
-    def __init__(self, plan_config, _grid, _ag_idx, _task_idx, _static, _conf_ag):
+    def __init__(self, args, plan_config, _grid, _ag_idx, _task_idx, _static, _conf_ag):
         print("===== Initialize PlanViz =====")
 
         # Load the yaml file or the input arguments
         self.pcf = plan_config
+        self.args = args
         self.pcf.canvas.bind("<Button-3>", self.show_ag_plan)
 
         # This is what enables using the mouse:
@@ -275,7 +285,8 @@ class PlanViz:
         self.resume_zoom()
 
         self.new_time.set(self.pcf.start_tstep)
-        self.update_curtime()
+        if self.args.plan:
+            self.update_curtime()
 
         self.frame.update()  # Adjust window size
         # Use width and height for scaling
@@ -290,6 +301,7 @@ class PlanViz:
         self.pcf.window.geometry(wd_width + "x" + wd_height)
         self.pcf.window.title("PlanViz")
         print("=====            DONE            =====")
+        save_as_png(self.pcf.canvas, "tmp")
 
 
     def change_ag_color(self, ag_idx:int, color:str) -> None:
@@ -809,7 +821,7 @@ class PlanViz:
 
         self.is_run.set(True)
         while self.pcf.cur_timestep < min(self.pcf.makespan, self.pcf.end_tstep):
-            print(self.pcf.cur_timestep , (self.pcf.makespan, self.pcf.end_tstep))
+            # print(self.pcf.cur_timestep , (self.pcf.makespan, self.pcf.end_tstep))
             if self.is_run.get() is True:
                 self.move_agents_per_timestep()
                 time.sleep(self.pcf.delay * 2)
@@ -848,7 +860,7 @@ class PlanViz:
             self.change_task_color(tid_, TASK_COLORS["unassigned"])
 
         for a_id, a_time in enumerate(self.pcf.event_tracker["aTime"]):
-            print(a_time, self.pcf.cur_timestep)
+            # print(a_time, self.pcf.cur_timestep)
             if a_time == -1:
                 self.pcf.event_tracker["aid"] = a_id
                 break
@@ -934,7 +946,7 @@ def main() -> None:
         args.plan = args.plan_path_type2
     plan_config = PlanConfig(args, args.map, args.plan, args.team_size, args.start, args.end,
                              args.ppm, args.moves, args.delay)
-    PlanViz(plan_config, args.show_grid, args.show_ag_idx, args.show_task_idx,
+    PlanViz(args, plan_config, args.show_grid, args.show_ag_idx, args.show_task_idx,
             args.show_static, args.show_conf_ag)
     tk.mainloop()
 

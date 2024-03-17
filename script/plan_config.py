@@ -29,20 +29,20 @@ class PlanConfig:
             if map_name in MAP_CONFIG:
                 self.ppm = MAP_CONFIG[map_name]["pixel_per_move"]
             else:
-                raise TypeError("Missing variable: pixel_per_move.")
+                self.ppm = MAP_CONFIG["default"]["pixel_per_move"]
         self.moves = moves
         if self.moves is None:
             if map_name in MAP_CONFIG:
                 self.moves = MAP_CONFIG[map_name]["moves"]
             else:
-                raise TypeError("Missing variable: moves.")
+                self.moves = MAP_CONFIG["default"]["moves"]
         self.delay:int = delay
         if self.delay is None:
             if map_name in MAP_CONFIG:
                 self.delay = MAP_CONFIG[map_name]["delay"]
             else:
-                raise TypeError("Missing variable: delay.")
-
+                self.delay = MAP_CONFIG["default"]["delay"]
+                
         self.tile_size:int = self.ppm * self.moves
         self.width:int = -1
         self.height:int = -1
@@ -83,11 +83,15 @@ class PlanConfig:
                 data = yaml.safe_load(states_file)
             data = self.plan_type2_to_type1(data)
         else:
-            with open(file=plan_file, mode="r", encoding="UTF-8") as fin:
-                data = json.load(fin)
-        self.load_plan(data, plan_file)  # Load the results
+            if plan_file:
+                with open(file=plan_file, mode="r", encoding="UTF-8") as fin:
+                    data = json.load(fin)
         self.render_env()
-        self.render_agents()
+        if data:
+            self.load_plan(data, plan_file)  # Load the results
+            self.render_agents()
+        
+        
 
 
 
@@ -96,10 +100,14 @@ class PlanConfig:
 
         with open(file=map_file, mode="r", encoding="UTF-8") as fin:
             fin.readline()  # ignore type
+            fin.readline()
             self.height = int(fin.readline().strip().split(' ')[1])
             self.width  = int(fin.readline().strip().split(' ')[1])
             fin.readline()  # ignore 'map' line
             for line in fin.readlines():
+                if len(list(line.strip())) < 1:
+                    continue
+                
                 out_line: List[bool] = []
                 for word in list(line.strip()):
                     if word in OBSTACLES:
@@ -112,6 +120,8 @@ class PlanConfig:
                         out_line.append(3)
                     elif word == "C":
                         out_line.append(4)
+                    elif word == "H":
+                        out_line.append(5)
                 # print(len(out_line) , self.width)
                 assert len(out_line) == self.width
                 self.env_map.append(out_line)
@@ -371,7 +381,14 @@ class PlanConfig:
                                                  (cid+1)*self.tile_size,
                                                  (rid+1)*self.tile_size,
                                                  state="disable",
-                                                 fill="#bca1c4")
+                                                 fill="#9370DB")
+                elif _cur_ele_ == 5:
+                    self.canvas.create_rectangle(cid * self.tile_size,
+                                                 rid * self.tile_size,
+                                                 (cid+1)*self.tile_size,
+                                                 (rid+1)*self.tile_size,
+                                                 state="disable",
+                                                 fill="#1E90FF")
                     
                     
 
