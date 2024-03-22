@@ -18,7 +18,7 @@ DIRECTION: Dict[str,int] = {"E":0, "N":1, "W":2, "S":3}
 OBSTACLES: List[str] = ['@', 'T']
 
 MAP_CONFIG: Dict[str,Dict] = {
-    "default": {"pixel_per_move": 2, "moves": 2, "delay": 0.015},
+    "default": {"pixel_per_move": 2, "moves": 2, "delay": 0.02},
     "Paris_1_256": {"pixel_per_move": 2, "moves": 2, "delay": 0.06},
     "orz900d": {"pixel_per_move": 1, "moves": 1, "delay": 0.06},
     "den312d": {"pixel_per_move": 3, "moves": 3, "delay": 0.03},
@@ -33,9 +33,6 @@ MAP_CONFIG: Dict[str,Dict] = {
     "warehouse_small": {"pixel_per_move": 5, "moves": 5, "delay": 0.06},
     "sortation_large": {"pixel_per_move": 2, "moves": 2, "delay": 0.06},
     "Boston_0_256": {"pixel_per_move": 2, "moves": 2, "delay": 0.06},
-    "warehouse-10-20-10-2-1": {"pixel_per_move": 2, "moves": 2, "delay": 0.015},
-    "warehouse-10-20-10-2-1_half": {"pixel_per_move": 2, "moves": 2, "delay": 0.015},
-    "warehouse-10-20-10-2-1_half_reduce": {"pixel_per_move": 2, "moves": 2, "delay": 0.015},
 }
 
 DIR_DIAMETER = 0.1

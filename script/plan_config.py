@@ -138,7 +138,7 @@ class PlanConfig:
         data["events"] = {}
         data["tasks"] = {}
         for agent_name in type2_data["schedule"]:
-            agent_path = [[node['x'], node['y'], node['t']] for node in type2_data["schedule"][agent_name]]
+            agent_path = [[node['x'], node['y'], node['t'], node['s']] for node in type2_data["schedule"][agent_name]]
             data["makespan"] = max(data["makespan"], len(agent_path)-1)
 
             agent_idx = int(agent_name.split("agent")[-1])

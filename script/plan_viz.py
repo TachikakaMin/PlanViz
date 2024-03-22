@@ -596,6 +596,9 @@ class PlanViz:
                 self.pcf.canvas.move(agent.agent_obj.obj, cur_move[0], cur_move[1])
                 self.pcf.canvas.move(agent.agent_obj.text, cur_move[0], cur_move[1])
                 self.pcf.canvas.move(agent.dir_obj, cur_move[0], cur_move[1])
+                colors = {0:"#54A1D4", 1:"#ED7668", 2:"#ED7668", 3:"#DBE769", 4:"#DBE769"}
+                color = colors[agent.path[next_tstep[ag_id]][3]]
+                self.pcf.canvas.itemconfig(agent.agent_obj.obj, fill=color)
                 # self.pcf.canvas.move(agent.dir_obj, _rad_ * _cos, _rad_ * _sin)
             self.pcf.canvas.update()
             time.sleep(self.pcf.delay)
@@ -665,6 +668,9 @@ class PlanViz:
                 self.pcf.canvas.move(agent.agent_obj.obj, cur_move[0], cur_move[1])
                 self.pcf.canvas.move(agent.agent_obj.text, cur_move[0], cur_move[1])
                 self.pcf.canvas.move(agent.dir_obj, cur_move[0], cur_move[1])
+                colors = {0:"#54A1D4", 1:"#ED7668", 2:"#ED7668", 3:"#DBE769", 4:"#DBE769"}
+                color = colors[agent.path[next_tstep[ag_id]][3]]
+                self.pcf.canvas.itemconfig(agent.agent_obj.obj, fill=color)
                 # self.pcf.canvas.move(agent.dir_obj, _rad_ * _cos, _rad_ * _sin)
             self.pcf.canvas.update()
             time.sleep(self.pcf.delay)
