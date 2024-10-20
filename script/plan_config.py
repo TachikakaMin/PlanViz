@@ -100,7 +100,6 @@ class PlanConfig:
 
         with open(file=map_file, mode="r", encoding="UTF-8") as fin:
             fin.readline()  # ignore type
-            fin.readline()
             self.height = int(fin.readline().strip().split(' ')[1])
             self.width  = int(fin.readline().strip().split(' ')[1])
             fin.readline()  # ignore 'map' line
@@ -138,7 +137,10 @@ class PlanConfig:
         data["events"] = {}
         data["tasks"] = {}
         for agent_name in type2_data["schedule"]:
-            agent_path = [[node['x'], node['y'], node['t'], node['s']] for node in type2_data["schedule"][agent_name]]
+            if 's' in type2_data["schedule"][agent_name][0].keys():
+                agent_path = [[node['x'], node['y'], node['t'], node['s']] for node in type2_data["schedule"][agent_name]]
+            else:
+                agent_path = [[node['x'], node['y'], node['t'], 0] for node in type2_data["schedule"][agent_name]]
             data["makespan"] = max(data["makespan"], len(agent_path)-1)
 
             agent_idx = int(agent_name.split("agent")[-1])
